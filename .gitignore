@@ -1,0 +1,8 @@
+# Ignore cache files
+.cache/
+.history/
+.vscode/
+obj/
+*.o
+compile_commands.json
+LICENSE
