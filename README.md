@@ -7,4 +7,5 @@ this is a simple example of how to use LVGL with a frame buffer device.
 图片如下：\n
 ![显示图片](/read_me_img/display_sample.jpg)
 
-控制部分: to be continue
+控制部分: \n
+![控制图片](/read_me_img/control_sample.jpg)
