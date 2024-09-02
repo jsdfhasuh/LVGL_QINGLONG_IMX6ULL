@@ -4,12 +4,9 @@
 #include "http.h"
 
 
-struct my_lvgl_data {
-    int x;
-    int y;
-    int z;
-};
+
 
 void lvgl_func(cJSON *json);
 void change_data(void);
+void fill_table(cJSON *json);
 #endif // LVGL_FUNC_H

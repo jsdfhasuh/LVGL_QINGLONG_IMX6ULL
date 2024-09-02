@@ -5,13 +5,62 @@
 #include "cJSON.h"
 #include "http.h"
 #include "ql_api.h"
+#include <stdlib.h>
 
 #include "lvgl/lvgl.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
 #include "lvgl_func.h"
+#include "debug.h"
+#include "tool.h"
 
 #define DISP_BUF_SIZE (1024 * 600)
+
+cJSON * old_json;
+cJSON * new_json;
+
+void refresh_data(lv_timer_t * timer)
+{
+    struct user_data * my_user_data = timer->user_data;
+    http_data *data;
+    #if DEBUG
+    printf("refresh_data\n");
+    printf("url = %s\n", my_user_data->url);
+    printf("token = %s\n", my_user_data->token);
+    #endif
+    data = get_crons(my_user_data->url,my_user_data->token);
+
+    //data = NULL;
+    if (data == NULL || data->response_json == NULL) {
+        printf("response_json is NULL\n");
+    }
+    else{
+        //printf("response_body is %s\n",data->body);
+        cJSON *json = cJSON_GetObjectItem(data->response_json, "data");
+        new_json = cJSON_GetObjectItem(json, "data");
+        if (new_json == NULL) {
+            printf("new_json is NULL\n");
+        }
+        else{
+            if (cJSON_Compare(old_json, new_json, cJSON_True)) {
+                printf("The JSON objects are equal.\n");
+                cJSON_Delete(new_json);
+            } else {
+                printf("The JSON objects are not equal.\n");
+                cJSON_Delete(old_json);
+                old_json = new_json;
+                fill_table(new_json);
+            }
+        }
+        // 释放旧的data数据
+        printf("response_body is %s\n",data->body);
+        //free(data->body);
+        free(data->response);
+        //JSON_Delete(data->response_json);
+        printf("释放结束\n");
+        //free(data);
+    }
+}
 
 
 int main(void)
@@ -56,12 +105,17 @@ int main(void)
     char client_sercret[] = "5_zaHgMj9BzHc39RxsMnP3_1";
     temp_data = ql_login(url,client_id,client_sercret);
     data = get_crons(url,temp_data.data);
+    struct user_data my_user_data = {url, temp_data.data};
     //run_corn(url, temp_data.data, 73);
     body = data->body;
+    #if DEBUG
     printf("body is \n%s\n",body);
+    #endif
     cJSON *json = cJSON_GetObjectItem(data->response_json, "data");
     json = cJSON_GetObjectItem(json, "data");
-
+    old_json = json;  // 保存旧的 json 数据
+        // 创建定时器
+    lv_timer_t * timer = lv_timer_create(refresh_data, 500,  &my_user_data);
     /*Create a Demo*/
     lvgl_func(json);
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "debug.h"
 #include <string.h>
+#include "ql_api.h"
 
 return_data ql_login(char *url,const char *client_id,const char *client_sercret)
 {
@@ -70,7 +71,6 @@ http_data* get_env(char *url,const char *token,const char *name)
 
 http_data* get_crons(char *url,const char *token)
 {
-    http_data * data;
     char * headers;
     int error_num;
     char *path = "/open/crons";
@@ -83,12 +83,12 @@ http_data* get_crons(char *url,const char *token)
     if (error_num < 0)
     {
         printf("headers error\n");
-        data = NULL;
+        http_data * data = NULL;
     }
     #if DEBUG
     printf("headers :\n%s\n",headers);
     #endif
-    data = http_main(url, path, 5700, "GET", 1,headers,"");
+    http_data * data = http_main(url, path, 5700, "GET", 1,headers,"");
     free(headers);
     return data;
 }

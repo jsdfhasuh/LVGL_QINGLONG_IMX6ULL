@@ -16,15 +16,8 @@
 
 lv_obj_t * base_screen;
 lv_obj_t * label_screen;
+lv_obj_t * data_table;
 
-struct my_lvgl_data data = {1, 2, 3};
-
-void change_data(void)
-{
-    data.x++;
-    data.y++;
-    data.z++;
-}
 
 
 // 回调函数，当表格中的单元格被点击时触发
@@ -44,14 +37,49 @@ static void table_event_cb(lv_event_t * e) {
     }
 }
 
+void fill_table(cJSON *json)
+{
+    
+    char *type[] = {"name","status","last_execution_time"};
+    char *name;
+    char *status;
+    int last_execution_time;
+    char *last_execution_time_str = (char *)malloc(100);
+    int height = lv_table_get_row_cnt(data_table);
+    # if 1
+    printf("height = %d\n", height);
+    #endif
+        for (int row = 0; row < height; row++) {
+        cJSON *item = cJSON_GetArrayItem(json, row);
+        //printf("item = %s\n", cJSON_Print(item));
+        name = cJSON_GetObjectItem(item,type[0])->valuestring;
+        //printf("name = %s\n", name);
+        status = cJSON_GetObjectItem(item,type[1])->valueint==0?"运行中":"已停止";
+        //printf("status = %s\n", status);
+        last_execution_time = cJSON_GetObjectItem(item,type[2])->valueint;
+        //printf("last_execution_time = %d\n", last_execution_time);
+        convert_timestamp(last_execution_time, last_execution_time_str);
+        //printf("last_execution_time = %s\n", last_execution_time_str);
+        lv_table_set_cell_value(data_table, row, 0, name);
+        lv_table_set_cell_value(data_table, row, 1, status);
+        lv_table_set_cell_value(data_table, row,2,last_execution_time_str);
+    }
+    
+}
+
+
 void lvgl_func(cJSON *json)
 {
     int height;
+
     height = cJSON_GetArraySize(json);
+    #if DEBUG
+    printf("user_data url = %s\n", my_user_data.url);
     printf("height = %d\n", height);
+    #endif
     LV_FONT_DECLARE(SourceHanSan);                         // 声明外部字库
 
-    char *type[] = {"name","status","last_execution_time"};
+    
     #if 1
     base_screen = lv_obj_create(NULL);
     lv_scr_load(base_screen);
@@ -66,9 +94,6 @@ void lvgl_func(cJSON *json)
     lv_obj_set_flex_flow(base_screen, LV_FLEX_FLOW_COLUMN); // 设置弹性布局为列方向
     lv_obj_set_style_pad_all(base_screen, 0, 0);
     lv_obj_set_style_outline_width(base_screen, 0, 0);
-
-
-
 
     // 创建表头容器
     lv_obj_t * header_container = lv_obj_create(base_screen);
@@ -116,45 +141,27 @@ void lvgl_func(cJSON *json)
     lv_obj_set_style_outline_width(table_container, 0, 0);
 
     // 在表格容器中创建表格
-    lv_obj_t * table = lv_table_create(table_container);
-    lv_table_set_col_cnt(table, 4); // 设置列数
-    lv_table_set_row_cnt(table, height); // 设置行数
+    data_table = lv_table_create(table_container);
+    lv_table_set_col_cnt(data_table, 4); // 设置列数
+    lv_table_set_row_cnt(data_table, height); // 设置行数
     // 设置每个单元格的宽度均分
-    lv_table_set_col_width(table, 0, base_screen_width / 4.1);
-    lv_table_set_col_width(table, 1, base_screen_width / 4.1);
-    lv_table_set_col_width(table, 2, base_screen_width / 4.1);
-    lv_table_set_col_width(table, 3, base_screen_width / 4.1);
-    lv_obj_set_style_text_font(table, &SourceHanSan, 0);
-    char *name;
-    char *status;
-    int last_execution_time;
-    char *last_execution_time_str = (char *)malloc(100);
-    
-    // 填充表格内容
-    for (int row = 0; row < height; row++) {
-        cJSON *item = cJSON_GetArrayItem(json, row);
-        printf("item = %s\n", cJSON_Print(item));
-        name = cJSON_GetObjectItem(item,type[0])->valuestring;
-        printf("name = %s\n", name);
-        status = cJSON_GetObjectItem(item,type[1])->valueint==0?"运行中":"已停止";
-        printf("status = %s\n", status);
-        last_execution_time = cJSON_GetObjectItem(item,type[2])->valueint;
-        //printf("last_execution_time = %d\n", last_execution_time);
-        convert_timestamp(last_execution_time, last_execution_time_str);
-        printf("last_execution_time = %s\n", last_execution_time_str);
-        
-        lv_table_set_cell_value(table, row, 0, name);
-        lv_table_set_cell_value(table, row, 1, status);
-        lv_table_set_cell_value(table,row,2,last_execution_time_str);
-    }
+    lv_table_set_col_width(data_table, 0, base_screen_width / 4.1);
+    lv_table_set_col_width(data_table, 1, base_screen_width / 4.1);
+    lv_table_set_col_width(data_table, 2, base_screen_width / 4.1);
+    lv_table_set_col_width(data_table, 3, base_screen_width / 4.1);
+    lv_obj_set_style_text_font(data_table, &SourceHanSan, 0);
+    fill_table(json);
 
     // 设置表格大小和对齐方式
-    lv_obj_set_size(table, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_align(table, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_size(data_table, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_align(data_table, LV_ALIGN_TOP_MID, 0, 0);
     //lv_obj_add_event_cb(table, table_event_cb, LV_EVENT_ALL, NULL);
 
     //sleep(5);
     //lv_scr_load(label_screen);
+
+    // 创建定时器
+    //lv_timer_t * timer = lv_timer_create(refresh_data, 500,  my_user_data_ptr);
 
     #endif
 }

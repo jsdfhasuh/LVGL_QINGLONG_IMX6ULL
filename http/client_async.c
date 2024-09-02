@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include "cJSON.h"
 #include "http.h"
+#include "debug.h"
 
 #define MAX_SIZE 1024
 static int i = 0;
@@ -21,7 +22,12 @@ static int resource_length = 10240;
 static int resource_new_length = 0;
 static int retry_time = 3;
 
-static http_data *data;
+static http_data client_data={
+    .body = NULL,
+    .response = NULL,
+    .response_json = NULL,
+};
+http_data *client_data_ptr = &client_data;
 
 void error(const char *msg)
 {
@@ -35,7 +41,9 @@ int create_socket()
     {
         error("Error opening socket");
     }
+    #if DEBUG
     printf("socketfd: %d \r\n", sockfd);
+    #endif
     return sockfd;
 }
 
@@ -67,28 +75,6 @@ void cancel_signal_handling(int fd)
     signal(SIGIO, SIG_DFL);
 }
 
-void send_http_post_request(int sockfd, const char *host, const char *path,const char *data,const char *custom_headers)
-{
-    char request[MAX_SIZE];
-
-
-    snprintf(request, sizeof(request),
-            "POST %s HTTP/1.1\n"
-            "Host: %s\n"
-            "%s"  // 插入自定义请求头
-            "Connection: close\n"
-            "\n"
-            "%s",
-            path, host,custom_headers,data);
-    printf("%s \n", request);
-
-    // 发送post请求
-    if (write(sockfd, request, strlen(request)) < 0)
-    {
-        error("Error writing to socket");
-    }
-    printf("send request\n");
-}
 
 void send_http_request(int sockfd, const char *host, const char *path,const char *custom_headers,int port,const char *action,const char *body)
 {
@@ -100,14 +86,19 @@ void send_http_request(int sockfd, const char *host, const char *path,const char
              "\n"
              "%s", // 插入请求体
              action,path, host,port, custom_headers,body);
+    
+    #if DEBUG
     printf("request is \n%s \n", request);
+    #endif
 
     // 发送get请求
     if (write(sockfd, request, strlen(request)) < 0)
     {
         error("Error writing to socket");
     }
-    printf("send request\r\n");
+    #if DEBUG
+    printf("send request finish\r\n");
+    #endif
 }
 
 
@@ -153,61 +144,65 @@ void copy_raw_data_to_responsedata(char *buffer,ssize_t buffer_length)
     if (resource_new_length + buffer_length > resource_length)
     {
         resource_length = resource_length * 2;
-        data->response = (char *)realloc(data->response, resource_length);
+        client_data_ptr->response = (char *)realloc(client_data_ptr->response, resource_length);
     }
-    strncat(data->response, buffer,buffer_length);
+    strncat(client_data_ptr->response, buffer,buffer_length);
     resource_new_length += buffer_length;
 }
 
 void change_response_to_json()
 {
-    for (int i = 0; i < strlen(data->response);i++)
+    for (int i = 0; i < strlen(client_data_ptr->response);i++)
     {
-        if (data ->response[i] == '\r' && data ->response[i + 1] == '\n' && data ->response[i + 2] == '\r' && data ->response[i + 3] == '\n')
+        if (client_data_ptr ->response[i] == '\r' && client_data_ptr ->response[i + 1] == '\n' && client_data_ptr ->response[i + 2] == '\r' && client_data_ptr ->response[i + 3] == '\n')
         {
-            data ->body = data ->response + i + 4;
+            client_data_ptr ->body = (client_data_ptr ->response) + i + 4;
             break;
         }
     }
-    cJSON *json = cJSON_Parse(data->body);
+    cJSON *json = cJSON_Parse(client_data_ptr->body);
     if (json == NULL)
     {
         printf("response is not json");
     }
     else{
         printf("response is json\n");
-        data -> response_json = json;
+        client_data_ptr -> response_json = json;
     }
+    //cJSON_Delete(json);
 }
 
 void sigio_handler(int signo) {
     char buffer[1024];
-    j += 1;
     bool real_read = false;
-    printf("Received signal time is %d\n", j);
+    #if DEBUG
+    printf("Received signal");
+    #endif
     while (1) {
         i += 1;
         ssize_t n = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
         if (n > 0) {
             buffer[n] = '\0'; // 确保字符串以空字符结尾
-            printf("Received data async:\n %s\n", buffer);
-            printf("Received data copy to response\n");
+            #if DEBUG
+            printf("Received client_data async:\n %s\n", buffer);
+            printf("Received client_data copy to response\n");
+            #endif
             copy_raw_data_to_responsedata(buffer,n);
             real_read = true;
         } else if (n == 0) {
             // 连接关闭
             printf("Connection closed by the peer.\n");
-            data->fisnish_status = 1;
+            client_data_ptr->fisnish_status = 1;
             break;
         } else {
-            perror("recv");
+            //perror("recv");
             if (retry_time != 0)
             {
-                printf("retry time is %d\n",retry_time);
+                //printf("retry time is %d\n",retry_time);
                 retry_time -= 1;
             }
             else{
-                data->fisnish_status = 1;
+                client_data_ptr->fisnish_status = 1;
                 retry_time = 3;
                 break;
             }
@@ -216,7 +211,7 @@ void sigio_handler(int signo) {
     }
     if (!real_read) {
         printf("No data to read. final_read\n");
-        data->fisnish_status = 1;
+        client_data_ptr->fisnish_status = 1;
     }
 }
 
@@ -224,8 +219,10 @@ void sigio_handler(int signo) {
 http_data* http_main(char * host,char * path,int port,char * action,int get,const char *custom_headers,const char *body)
 {
     // 设置response的大小
-    data = (http_data *)malloc(sizeof(http_data));
-    data->response = (char *)calloc(resource_length,sizeof(char));
+    #if DEBUG
+    printf("http_main\n");
+    #endif
+
     // 设置服务器地址
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
@@ -234,9 +231,12 @@ http_data* http_main(char * host,char * path,int port,char * action,int get,cons
     inet_aton(host, &server_addr.sin_addr);
     server_addr.sin_port = htons(port);
 
+
+    client_data_ptr -> response = (char *)calloc(resource_length,sizeof(char));
+
     // 创建socket
     sockfd = create_socket();
-    data->sockfd = sockfd;
+    client_data_ptr->sockfd = sockfd;
 
     // 连接到服务器
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
@@ -251,6 +251,9 @@ http_data* http_main(char * host,char * path,int port,char * action,int get,cons
     if (get)
     {
         // 注册SIGIO信号处理函数
+        #if DEBUG
+        printf("register sigio\n");
+        #endif
         struct sigaction sa;
         sa.sa_handler = sigio_handler;
         sa.sa_flags = 0;
@@ -260,10 +263,17 @@ http_data* http_main(char * host,char * path,int port,char * action,int get,cons
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-        while (data->fisnish_status == 0)
+        #if DEBUG
+        printf("client_data->fisnish_status is %d\n",client_data->fisnish_status);
+        printf("register sigio finish\n");
+        #endif
+        client_data_ptr->fisnish_status = 0;
+        while (client_data_ptr->fisnish_status == 0)
         {
+            #if DEBUG
             printf("request no finish");
-            sleep(1);
+            #endif
+            usleep(500000);
         }
         cancel_signal_handling(sockfd);
         change_response_to_json();
@@ -273,7 +283,7 @@ http_data* http_main(char * host,char * path,int port,char * action,int get,cons
     {
         close(sockfd);
     }
-    return data;
+    return client_data_ptr;
 }
 #if 0
 int main()
