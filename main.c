@@ -28,7 +28,7 @@ void refresh_data(lv_timer_t * timer)
     printf("url = %s\n", my_user_data->url);
     printf("token = %s\n", my_user_data->token);
     #endif
-    data = get_crons(my_user_data->url,my_user_data->token);
+    data = get_crons(NULL,NULL);
 
     //data = NULL;
     if (data == NULL || data->response_json == NULL) {
@@ -52,13 +52,10 @@ void refresh_data(lv_timer_t * timer)
                 fill_table(new_json);
             }
         }
-        // 释放旧的data数据
-        printf("response_body is %s\n",data->body);
-        //free(data->body);
+        time_t current_time;
+        time(&current_time);
+        printf("Current time: %s", ctime(&current_time));
         free(data->response);
-        //JSON_Delete(data->response_json);
-        printf("释放结束\n");
-        //free(data);
     }
 }
 

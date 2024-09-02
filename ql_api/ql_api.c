@@ -6,6 +6,10 @@
 #include <string.h>
 #include "ql_api.h"
 
+
+char * global_url;
+char * global_token;
+
 return_data ql_login(char *url,const char *client_id,const char *client_sercret)
 {
     char * path = (char *)calloc(2048,sizeof(char));
@@ -39,6 +43,8 @@ return_data ql_login(char *url,const char *client_id,const char *client_sercret)
     free(path);
     token = cJSON_GetObjectItem(temp_json, "token")->valuestring;
     return_data_ql_login = (return_data){.data = token, .length = strlen(token)};
+    global_token = token;
+    global_url = url;
     return return_data_ql_login;
 }
 
@@ -49,6 +55,11 @@ http_data* get_env(char *url,const char *token,const char *name)
     char * headers;
     int error_num;
     char *path = "/open/envs";
+    if (url == NULL && token == NULL)
+    {
+        url = global_url;
+        token = global_token;
+    }
     #if DEBUG
     printf("url :%s\n",url);
     printf("token :%s\n",token);
@@ -74,6 +85,11 @@ http_data* get_crons(char *url,const char *token)
     char * headers;
     int error_num;
     char *path = "/open/crons";
+    if (url == NULL && token == NULL)
+    {
+        url = global_url;
+        token = global_token;
+    }
     #if DEBUG
     printf("url :%s\n",url);
     printf("token :%s\n",token);
@@ -94,13 +110,18 @@ http_data* get_crons(char *url,const char *token)
 }
 
 
-void run_corn(char *url,const char *token,const char id)
+void run_corn(char *url,const char *token,const int id)
 {
     char * headers;
     char * body;
     int error_num;
     http_data * data;
     char *path = "/open/crons/run";
+    if (url == NULL && token == NULL)
+    {
+        url = global_url;
+        token = global_token;
+    }
     #if DEBUG
     printf("url :%s\n",url);
     printf("token :%s\n",token);
@@ -122,7 +143,6 @@ void run_corn(char *url,const char *token,const char id)
     {
         printf("headers error\n");
     }
-
     #if DEBUG
     printf("headers :\n%s\n",headers);
     printf("body :\n%s\n",body);
