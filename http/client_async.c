@@ -29,12 +29,12 @@ static http_data client_data={
 };
 http_data *client_data_ptr = &client_data;
 
-void error(const char *msg)
+static void error(const char *msg)
 {
     perror(msg);
 }
 
-int create_socket()
+static int create_socket()
 {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
@@ -47,7 +47,7 @@ int create_socket()
     return sockfd;
 }
 
-void close_socket(int sockfd)
+static void close_socket(int sockfd)
 {
     if (sockfd >= 0)
     {
@@ -55,7 +55,7 @@ void close_socket(int sockfd)
     }
 }
 
-void cancel_signal_handling(int fd)
+static void cancel_signal_handling(int fd)
 {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1)
@@ -76,7 +76,7 @@ void cancel_signal_handling(int fd)
 }
 
 
-void send_http_request(int sockfd, const char *host, const char *path,const char *custom_headers,int port,const char *action,const char *body)
+static void send_http_request(int sockfd, const char *host, const char *path,const char *custom_headers,int port,const char *action,const char *body)
 {
     char request[MAX_SIZE];
         snprintf(request, sizeof(request),
@@ -103,7 +103,7 @@ void send_http_request(int sockfd, const char *host, const char *path,const char
 
 
 
-void set_nonblocking(int sockfd,int get)
+static void set_nonblocking(int sockfd,int get)
 {
     int flags;
 
@@ -139,7 +139,7 @@ void set_nonblocking(int sockfd,int get)
 }
 
 // 扩大http_data里面的response
-void copy_raw_data_to_responsedata(char *buffer,ssize_t buffer_length)
+static void copy_raw_data_to_responsedata(char *buffer,ssize_t buffer_length)
 {
     if (resource_new_length + buffer_length > resource_length)
     {
@@ -150,7 +150,7 @@ void copy_raw_data_to_responsedata(char *buffer,ssize_t buffer_length)
     resource_new_length += buffer_length;
 }
 
-void change_response_to_json()
+static void change_response_to_json()
 {
     for (int i = 0; i < strlen(client_data_ptr->response);i++)
     {
@@ -166,13 +166,13 @@ void change_response_to_json()
         printf("response is not json");
     }
     else{
-        printf("response is json\n");
         client_data_ptr -> response_json = json;
+        printf("response is json\n");
     }
     //cJSON_Delete(json);
 }
 
-void sigio_handler(int signo) {
+static void sigio_handler(int signo) {
     char buffer[1024];
     bool real_read = false;
     #if DEBUG
@@ -264,7 +264,7 @@ http_data* http_main(char * host,char * path,int port,char * action,int get,cons
             exit(EXIT_FAILURE);
         }
         #if DEBUG
-        printf("client_data->fisnish_status is %d\n",client_data->fisnish_status);
+        printf("client_data->fisnish_status is %d\n",client_data_ptr->fisnish_status);
         printf("register sigio finish\n");
         #endif
         client_data_ptr->fisnish_status = 0;

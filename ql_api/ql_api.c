@@ -105,6 +105,7 @@ http_data* get_crons(char *url,const char *token)
     printf("headers :\n%s\n",headers);
     #endif
     http_data * data = http_main(url, path, 5700, "GET", 1,headers,"");
+    printf("finsish get_crons\n");
     free(headers);
     return data;
 }
@@ -150,3 +151,46 @@ void run_corn(char *url,const char *token,const int id)
     data = http_main(url, path, 5700, "PUT", 1,headers,body);
     free(headers);
 }
+
+//请求url http://192.168.100.1:5700/api/crons/21/log?t=1725337575483
+http_data* get_log(char *url,const char *token,int task_id)
+{
+    char * headers;
+    int error_num;
+    int t = get_current_timestamp();
+    char *path = (char *)calloc(2048,sizeof(char));
+    error_num = snprintf(path, 2048, "/open/crons/%d/log?t=%d", task_id,t);
+    if (error_num < 0)
+    {
+        printf("path error\n");
+        http_data * data = NULL;
+        return data;
+    }
+    if (url == NULL && token == NULL)
+    {
+        url = global_url;
+        token = global_token;
+    }
+    #if 1
+    printf("url :%s\n",url);
+    printf("token :%s\n",token);
+    printf("task_id:%d\n",task_id);
+    #endif
+    headers = (char *)calloc(2048,sizeof(char));
+    error_num = snprintf(headers,2048,"Authorization: Bearer %s\r\naccept: application/json,text/plain,*/*\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6\r\nConnection: keep-alive\n\r",token);
+    if (error_num < 0)
+    {
+        printf("headers error\n");
+        http_data * data = NULL;
+        return data;
+    }
+    #if DEBUG
+    printf("headers :\n%s\n",headers);
+    #endif
+    http_data * data = http_main(url, path, 5700, "GET", 1,headers,"");
+    printf("finsish get_logs\n");
+    free(headers);
+    free(path);
+    return data;
+}
+

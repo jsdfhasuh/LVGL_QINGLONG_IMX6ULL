@@ -7,9 +7,11 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include "http.h"
 #include "lv_dropdown.h"
 #include "lv_event.h"
 #include "lv_label.h"
+#include "lv_obj_pos.h"
 #include "lv_obj_style.h"
 #include "lv_table.h"
 #include "lvgl_func.h"
@@ -20,6 +22,7 @@ lv_obj_t * base_screen;
 lv_obj_t * control_screen;
 lv_obj_t * data_table;
 lv_obj_t * dd;
+lv_obj_t * log_txt_table;
 
 
 struct key_data {
@@ -29,8 +32,8 @@ struct key_data {
 };
 struct key_data first_key_data = {65535,65535,2};
 struct key_data second_key_data = {65535,65535,2};
-cJSON *my_all_json;
-
+cJSON *my_all_json;   //所以后端传递数据的整理
+http_data *log_http_data;
 
 static void refresh_key_data()
 {
@@ -42,9 +45,14 @@ static void refresh_key_data()
     second_key_data.status = 2;
 }
 
-static int get_taskid()
+static int get_taskid(int row)
 {
-
+    char option_index_text[10];
+    int task_id;
+    sprintf(option_index_text, "%d",row);
+    cJSON *target_json = cJSON_GetObjectItem(my_all_json,option_index_text);
+    task_id = cJSON_GetObjectItem(target_json,"task_id")->valueint;
+    return task_id;
 }
 
 // 获取按钮的标签文本
@@ -58,12 +66,14 @@ static char * get_button_label_text(lv_obj_t * btn) {
     return NULL;
 }
 
+
 // 回调函数，当表格中的单元格被点击时触发
 static void table_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t * obj = lv_event_get_target(e);
     uint16_t col =0;
     uint16_t row = 0;
+    int task_id;
     if (code == LV_EVENT_PRESSING) {
         //lv_scr_load(control_screen);
         lv_table_get_selected_cell(obj, &row, &col);
@@ -101,8 +111,24 @@ static void table_event_cb(lv_event_t * e) {
             if ((first_key_data.col == second_key_data.col) && (first_key_data.row == second_key_data.row))
             {
                 printf("双击\n");
-                lv_scr_load(control_screen);
+                task_id = get_taskid(first_key_data.row);
+                printf("task_id = %d\n", task_id);
+                // 获得日志的http_data
+                log_http_data = get_log(NULL, NULL, task_id);
+                if (log_http_data == NULL || log_http_data->response_json == NULL) 
+                {
+                    printf("response_json is NULL\n");
+                }
+                else{
+                    printf("get log");
+                    char *text = cJSON_GetObjectItem(log_http_data->response_json, "data")->valuestring;
+                    printf("text = \n%s\n", text);
+                    lv_textarea_set_text(log_txt_table, text);
+                    printf("finish log");
+                    //printf("text = \n%s\n", text);
+                }
                 lv_dropdown_set_selected(dd, first_key_data.row);
+                lv_scr_load(control_screen);
                 refresh_key_data();
             }
             else
@@ -142,13 +168,21 @@ static void button_event_cb(lv_event_t * e) {
             printf("Button text: %s\n", text);
             #endif
             if (strcmp(text, "运行") == 0) {
+                //free(log_http_data->response);
                 printf("运行%d\n",task_id);
                 run_corn(NULL, NULL, task_id);
                 lv_scr_load(base_screen);
             }
             else if (strcmp(text, "停止") == 0) 
             {
+                //free(log_http_data->response);
                 printf("停止%d\n",task_id);
+                lv_scr_load(base_screen);
+            }
+            else if (strcmp(text, "退出") == 0) 
+            {
+                //free(log_http_data->response);
+                printf("退出%d\n");
                 lv_scr_load(base_screen);
             }
         }
@@ -162,6 +196,8 @@ void fill_table(cJSON *json)
         cJSON_Delete(my_all_json);
         my_all_json = cJSON_CreateObject();
     }
+    char *json_str;
+    //printf("json:\n %s\n", json_str);
     char *type[] = {"name","status","last_execution_time"};
     char *name;
     char *status;
@@ -203,9 +239,11 @@ void fill_table(cJSON *json)
         sprintf(option_index_text, "%d",row);
         cJSON_AddItemToObject(my_all_json, option_index_text, nested_json);
     }
-    char *json_str = cJSON_Print(my_all_json);
+    json_str = cJSON_Print(my_all_json);
     printf("json_str:\n %s\n", json_str);
-    free(json_str);
+    //http_data *data = get_log(NULL, NULL, 21);
+    //printf("body is\n%s\n",data->body);
+    //free(json_str);
 }
 
 
@@ -339,9 +377,21 @@ void lvgl_func(cJSON *json)
     lv_obj_t * stop_label = lv_label_create(stop_btn);
     lv_obj_add_event_cb(stop_btn, button_event_cb, LV_EVENT_ALL, NULL);
     lv_label_set_text(stop_label, "停止");
+    lv_obj_t * change_btn = lv_btn_create(control_header_container);
+    lv_obj_align(change_btn, LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_t * change_label = lv_label_create(change_btn);
+    lv_obj_add_event_cb(change_btn, button_event_cb, LV_EVENT_ALL, NULL);
+    lv_label_set_text(change_label, "退出");
+    
     
     dd = lv_dropdown_create(control_header_container);
+    lv_obj_set_width(dd, base_screen_width*0.3);
+    log_txt_table = lv_textarea_create(control_screen);
 
+    lv_obj_set_size(log_txt_table, base_screen_width, LV_PCT(80));
+    lv_textarea_set_text(log_txt_table, "hello"); // 设置初始文本
+    lv_textarea_set_cursor_click_pos(log_txt_table, false); // 禁用光标点击位置
+    lv_textarea_set_accepted_chars(log_txt_table, ""); // 禁用所有字符输入
 
 
     // 填充数据

@@ -29,16 +29,17 @@ void refresh_data(lv_timer_t * timer)
     printf("token = %s\n", my_user_data->token);
     #endif
     data = get_crons(NULL,NULL);
-
+    printf("refresh_data start\n");
     //data = NULL;
     if (data == NULL || data->response_json == NULL) {
         printf("response_json is NULL\n");
     }
     else{
+    
         //printf("response_body is %s\n",data->body);
         cJSON *json = cJSON_GetObjectItem(data->response_json, "data");
         new_json = cJSON_GetObjectItem(json, "data");
-        if (new_json == NULL) {
+        if (cJSON_GetArraySize(new_json) == 0) {
             printf("new_json is NULL\n");
         }
         else{
@@ -47,6 +48,8 @@ void refresh_data(lv_timer_t * timer)
                 cJSON_Delete(new_json);
             } else {
                 printf("The JSON objects are not equal.\n");
+                #if 1
+                #endif
                 cJSON_Delete(old_json);
                 old_json = new_json;
                 fill_table(new_json);
@@ -57,6 +60,7 @@ void refresh_data(lv_timer_t * timer)
         printf("Current time: %s", ctime(&current_time));
         free(data->response);
     }
+    printf("refresh_data finish\n");
 }
 
 

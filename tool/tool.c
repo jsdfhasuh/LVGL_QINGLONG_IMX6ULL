@@ -3,6 +3,15 @@
 #include <time.h>
 #include "tool.h"
 
+
+int get_current_timestamp() {
+    // 获取当前时间
+    time_t current_time = time(NULL);
+    
+    // 将当前时间（time_t类型）转换为时间戳（int类型）
+    return (int)current_time;
+}
+
 void convert_timestamp(int timestamp, char* output_str) {
     // Convert the int timestamp to a time_t variable
     //printf("timestamp = %d\n", timestamp);
